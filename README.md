@@ -1,4 +1,12 @@
-# Kernel Webauthn App
+# Passkey server
+
+Create tables
+```sh
+cat src/migrations/init.sql | sudo docker exec -i postgres_db psql -U postgres -d myapp_db
+```
+
+
+---
 
 This project is a minimal setup for a full-stack application with WebAuthn using React, TypeScript, and Vite for the frontend, with a Bun-powered backend.
 
