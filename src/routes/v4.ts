@@ -64,63 +64,80 @@ export function registerV4Routes(
     })
 
     app.post("/api/v4/register/verify", async (c) => {
-        const { userId, username, cred } = await c.req.json<{
-            userId: string
-            username: string
-            cred: RegistrationResponseJSON
-        }>()
+        try {
+            const { userId, username, cred } = await c.req.json<{
+                userId: string
+                username: string
+                cred: RegistrationResponseJSON
+            }>()
 
-        // base64url to Uint8Array
-        const pubKey = cred.response.publicKey!
+            // base64url to Uint8Array
+            const pubKey = cred.response.publicKey!
 
-        if (!userId) return new Response("UserId Not Found", { status: 401 })
+            if (!userId) return new Response("UserId Not Found", { status: 401 })
 
-        const domainName = await getDomainName(c)
-        if (!domainName) return c.text("Origin header is missing", 400)
+            const domainName = await getDomainName(c)
+            if (!domainName) return c.text("Origin header is missing", 400)
 
-        const clientData = JSON.parse(atob(cred.response.clientDataJSON))
-        const challenge = await passkeyRepo.get([
-            "challenges",
-            domainName,
-            clientData.challenge
-        ])
+            const clientData = JSON.parse(atob(cred.response.clientDataJSON))
+            const challenge = await passkeyRepo.get([
+                "challenges",
+                domainName,
+                clientData.challenge
+            ])
 
-        if (!challenge) {
-            return c.text("Invalid challenge", 400)
-        }
+            if (!challenge) {
+                return c.text("Invalid challenge", 400)
+            }
 
-        const verification = await verifyRegistrationResponse({
-            response: cred,
-            expectedChallenge: clientData.challenge,
-            expectedRPID: domainName,
-            expectedOrigin: c.req.header("origin")!, //! Allow from any origin
-            requireUserVerification: true
-        })
-
-        if (verification.verified) {
-            const { credentialID, credentialPublicKey, counter } =
-                verification.registrationInfo!
-
-            await passkeyRepo.delete(["challenges", clientData.challenge])
-
-            await passkeyRepo.createUser({
-                userId,
-                username,
-                projectId: null
+            const verification = await verifyRegistrationResponse({
+                response: cred,
+                expectedChallenge: clientData.challenge,
+                expectedRPID: domainName,
+                expectedOrigin: c.req.header("origin")!, //! Allow from any origin
+                requireUserVerification: true
             })
 
-            await passkeyRepo.createCredential({
-                credentialId: uint8ArrayToBase64Url(credentialID),
-                userId,
-                credentialPublicKey: uint8ArrayToBase64Url(credentialPublicKey),
-                counter,
-                publicKey: pubKey
-            })
+            if (verification.verified) {
+                const { credentialID, credentialPublicKey, counter } =
+                    verification.registrationInfo!
 
-            return c.json(verification)
+                await passkeyRepo.delete(["challenges", clientData.challenge])
+
+                // Create user first
+                try {
+                    await passkeyRepo.createUser({
+                        userId,
+                        username,
+                        projectId: null
+                    })
+                } catch (error) {
+                    console.error('Error creating user:', error)
+                    return c.json({ error: 'Failed to create user' }, { status: 500 })
+                }
+
+                // Then create credential
+                try {
+                    await passkeyRepo.createCredential({
+                        credentialId: uint8ArrayToBase64Url(credentialID),
+                        userId,
+                        credentialPublicKey: uint8ArrayToBase64Url(credentialPublicKey),
+                        counter,
+                        publicKey: pubKey
+                    })
+                } catch (error) {
+                    console.error('Error creating credential:', error)
+                    return c.json({ error: 'Failed to create credential' }, { status: 500 })
+                }
+
+                return c.json(verification)
+            }
+
+            return c.text("Unauthorized", 401)
+        } catch (error) {
+            console.error('Registration verification error:', error)
+            return c.json({ error: 'Internal server error' }, { status: 500 })
         }
-
-        return c.text("Unauthorized", 401)
     })
 
     app.post("/api/v4/login/options", async (c) => {
