@@ -749,7 +749,11 @@ registerV4Routes(app, passkeyRepo, CHALLENGE_TTL)
 // health check
 app.get("/health", (c) => c.json({ status: "ok" }))
 
+const port = 8080
+
 Bun.serve({
-    port: 8080, // defaults to $BUN_PORT, $PORT, $NODE_PORT otherwise 3000
+    port, 
     fetch: app.fetch
 })
+
+console.log("Server is running on port", port)
