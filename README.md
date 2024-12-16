@@ -1,45 +1,26 @@
 # Passkey server
 
+Run Postgres & redis
+```sh
+docker compose up -d
+```
+
 Create tables
 ```sh
 cat src/migrations/init.sql | sudo docker exec -i postgres_db psql -U postgres -d myapp_db
 ```
 
-
----
-
-This project is a minimal setup for a full-stack application with WebAuthn using React, TypeScript, and Vite for the frontend, with a Bun-powered backend.
-
-## Prerequisites
-
-Before running the application, ensure you have the following installed:
-- [Node.js](https://nodejs.org/)
-- [Bun](https://bun.sh/)
-
-## Installation
-
-To set up the project, clone the repository and install dependencies:
-```bash
-git clone <repository-url>
-cd <repository-name>
-bun install
+Create JWT secret
+```sh
+openssl rand -hex 32 | tr -d "\n" > "jwt.hex"
 ```
 
-## Running the Application
+Config .env
+```sh
+cp .env.example .env
+```
 
-The application consists of two main parts: the server and the client.
-
-### Server
-
-To start the server, run the following command:
-```bash
+Run passkey-server
+```sh
 bun run server.ts
-```
-This will start the backend server on the default port.
-
-### Client
-
-To start the client development server, use:
-```bash
-bun run dev
 ```
